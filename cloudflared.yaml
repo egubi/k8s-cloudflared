@@ -1,0 +1,93 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: cloudflared
+---
+apiVersion: v1
+data:
+  default.yaml: |-
+    tunnel: <INSERT TUNNEL ID>
+    credentials-file: /etc/cloudflared/cred.json
+
+    ingress:
+#    - hostname: # ADD specific hostname if needed
+#      service: # 
+# use catch-all service
+    - service: http://traefik.traefik
+kind: ConfigMap
+metadata:
+  name: config-file
+  namespace: cloudflared
+---
+apiVersion: v1
+data:
+  cred.json: |-
+    {
+      "AccountTag": # SUPPLY from *.json file in ~/.cloudflared/,
+      "TunnelSecret": # SUPPLY from *.json file in ~/.cloudflared/,
+      "TunnelID":# SUPPLY from *.json file in ~/.cloudflared/ ,
+      "TunnelName": # SUPPLY from *.json file in ~/.cloudflared/
+    }
+kind: ConfigMap
+metadata:
+  name: credential-file
+  namespace: cloudflared
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: cloudflared
+  name: cloudflared
+  namespace: cloudflared
+spec:
+  replicas: 1
+  revisionHistoryLimit: 1
+  selector:
+    matchLabels:
+      app: cloudflared
+  strategy:
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+    type: RollingUpdate
+  template:
+    metadata:
+      annotations:
+        prometheus.io/path: /metrics
+        prometheus.io/port: "9090"
+        prometheus.io/scrape: "true"
+      labels:
+        app: cloudflared
+    spec:
+      containers:
+      - args:
+        - tunnel
+        - --config
+        - /etc/cloudflared/default.yaml
+        - --metrics
+        - 0.0.0.0:9090
+        - run
+        image: cloudflare/cloudflared:2021.5.10
+        imagePullPolicy: Always
+        name: cloudflared
+        ports:
+        - containerPort: 9090
+          name: exporterport
+          protocol: TCP
+        volumeMounts:
+        - mountPath: /etc/cloudflared/default.yaml
+          name: config-file
+          readOnly: true
+          subPath: default.yaml
+        - mountPath: /etc/cloudflared/cred.json
+          name: credential-file
+          readOnly: true
+          subPath: cred.json
+      volumes:
+      - configMap:
+          name: config-file
+        name: config-file
+      - configMap:
+          name: credential-file
+        name: credential-file
