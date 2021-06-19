@@ -1,3 +1,5 @@
 # Install cloudflared in kubernetes cluster
 
-Blog Post here: 
+Full Blog Post here: 
+https://letsdocloud.com/2021/06/expose-kubernetes-service-using-cloudflare-argo-tunnel/
+
